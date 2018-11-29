@@ -45,7 +45,7 @@ def main():
 
         # check the channel is suitable
         if not channel_is_whitelisted(
-                ctx.message.channel.id,
+                ctx.message.channel,
                 os.getenv("CHANNEL_WHITELIST").split(",")):
             return
 
