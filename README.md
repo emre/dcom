@@ -3,7 +3,7 @@
 dcom *(discord community bot)* is a discord bot for communities to trigger
 upvotes from specified discord channels/servers.
 
-# installation
+# Installation
 
 ```bash
 $ pip install dcom
@@ -30,7 +30,7 @@ CURATOR_GROUPS=curators,admins
 
 # Running
 
-```python
+```bash
 $ dcom
 ```
 
