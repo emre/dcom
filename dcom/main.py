@@ -9,6 +9,7 @@ from .utils import (
     get_post_content,
     already_voted,
     in_curation_window,
+    channel_is_whitelisted
 )
 
 
@@ -28,20 +29,24 @@ def main():
         command_prefix="$",
         dcom_config=config)
 
+    # remove the default help command, we're overriding a better one.
     bot.remove_command("help")
 
     # register the commands
     @bot.command(pass_context=True)
     async def upvote(ctx, url, weight):
-        """
-        Upvotes the STEEM post
-        """
 
         # only members of specified groups can use the bot.
         specified_groups = set(os.getenv("CURATOR_GROUPS").split(","))
         user_roles = set([r.name for r in ctx.message.author.roles])
         if not len(user_roles.intersection(specified_groups)):
             await bot.say("You don't have required permissions to do that.")
+            return
+
+        # check the channel is suitable
+        if not channel_is_whitelisted(
+                ctx.message.channel.id,
+                os.getenv("CHANNEL_WHITELIST").split(",")):
             return
 
         # Try to parse author and permlink from the URL
@@ -99,7 +104,7 @@ def main():
     @bot.command(pass_context=True)
     async def help(ctx):
         embed = Embed(
-            color=0x2ecc71,
+            color=0x2ecc71, # green
         )
         embed.add_field(
             name="$upvote",

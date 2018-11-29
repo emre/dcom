@@ -58,3 +58,7 @@ def in_curation_window(comment, max_age=561600, min_age=800):
 
 def already_voted(comment, voter):
     return voter in [v["voter"] for v in comment["active_votes"]]
+
+
+def channel_is_whitelisted(channel, channel_whitelist):
+    return channel.id in channel_whitelist
