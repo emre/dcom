@@ -1,4 +1,5 @@
 import os
+import os.path
 
 from discord import Embed
 from dotenv import load_dotenv
@@ -15,7 +16,8 @@ from .utils import (
 
 def main():
     # load environment vars from the .env file
-    load_dotenv()
+
+    load_dotenv(dotenv_path=os.path.expanduser("~/.dcom_env"))
 
     # map environment vars to our config
     config = {
