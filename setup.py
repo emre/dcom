@@ -15,6 +15,6 @@ setup(
         ],
     },
     install_requires=[
-        "lightstee", "discord.py", "python-dotenv"
+        "lightsteem", "discord.py", "python-dotenv"
     ]
 )
