@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='dcom',
-    version='0.0.2',
+    version='0.0.4',
     packages=['dcom'],
     url='https://github.com/emre/dcom',
     license='MIT',
@@ -15,6 +15,6 @@ setup(
         ],
     },
     install_requires=[
-        "lightsteem", "discord.py", "python-dotenv"
+        "lightsteem", "discord.py", "python-dotenv", "pymongo"
     ]
 )
