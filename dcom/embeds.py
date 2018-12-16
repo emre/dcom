@@ -10,6 +10,14 @@ def get_help():
               "```$upvote <post_url> <vote_weight_in_percent>```",
         inline=False,
     )
+
+    embed.add_field(
+        name="$register",
+        value="Registers your STEEM account with your Discord ID"
+              "```$register <steem_username>```",
+        inline=False,
+    )
+
     embed.add_field(
         name="$vp",
         value="Shows the current voting power.",
