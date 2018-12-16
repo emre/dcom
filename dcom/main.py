@@ -4,6 +4,7 @@ import os.path
 from dotenv import load_dotenv
 
 from .client import DcomClient
+from .embeds import get_help
 from .utils import (
     parse_author_and_permlink,
     get_post_content,
@@ -11,8 +12,6 @@ from .utils import (
     in_curation_window,
     channel_is_whitelisted
 )
-
-from .embeds import get_help
 
 
 def main():
@@ -24,7 +23,15 @@ def main():
     config = {
         "bot_account": os.getenv("BOT_ACCOUNT"),
         "bot_posting_key": os.getenv("BOT_POSTING_KEY"),
-        "steem_nodes": os.getenv("STEEM_NODES").split(",")
+        "steem_nodes": os.getenv("STEEM_NODES").split(","),
+        "mongo_uri": os.getenv("MONGO_URI"),
+        "registration_channel": os.getenv("REGISTRATION_CHANNEL"),
+        "registration_account": os.getenv("REGISTRATION_ACCOUNT"),
+        "registration_account_active_key": os.getenv(
+            "REGISTRATION_ACCOUNT_ACTIVE_KEY"),
+        "role_name_for_registered_users": os.getenv(
+            "ROLE_FOR_REGISTERED_USERS"),
+        "community_name": os.getenv("COMMUNITY_NAME"),
     }
 
     # init the modified Discord client
@@ -108,6 +115,42 @@ def main():
     async def help(ctx):
         await bot.send_message(
             ctx.message.channel, "Available commands", embed=get_help())
+
+    @bot.command(pass_context=True)
+    async def register(ctx, username):
+
+        await bot.send_typing(ctx.message.channel)
+
+        # check the channel is suitable
+        if ctx.message.channel.id != os.getenv("REGISTRATION_CHANNEL"):
+            await bot.say(
+                f"Use the <#{bot.registration_channel}> channel for "
+                f"the registration commands.")
+            return
+
+        # check the username is valid
+        if not bot.steem_username_is_valid(username):
+            await bot.say_error(f"`{username}` is not an existing STEEM "
+                                f"username. If you would like one, please "
+                                f"ask for support in the #general channel.")
+            return
+
+        verification_code = bot.get_verification_code(
+            username,
+            ctx.message.author,
+        )
+
+        message = f":right_facing_fist: :left_facing_fist: " \
+                  f"To register **{username}** with " \
+                  f"{ctx.message.author.mention}, please send 0.001 STEEM or" \
+                  f" 0.001 SBD to" \
+                  f" `{bot.registration_account}` with the following memo:" \
+                  f" ```{verification_code}```"
+
+        await bot.say(message)
+
+    # create a timer-task for registrations
+    bot.loop.create_task(bot.check_transfers())
 
     # shoot!
     bot.run(os.getenv("DISCORD_BOT_TOKEN"))
