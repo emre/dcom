@@ -82,7 +82,7 @@ class DcomClient(commands.Bot):
 
     def get_verification_code(self, steem_username, discord_author):
         old_verification_code = self.mongo_database["verification_codes"]. \
-            find_one({"verified": False})
+            find_one({"verified": False, "steem_username": steem_username})
         if old_verification_code:
             verification_code = old_verification_code["code"]
             self.mongo_database["verification_codes"].update_one(
@@ -106,12 +106,13 @@ class DcomClient(commands.Bot):
     def running_on(self):
         return list(self.servers)[0]
 
-    async def verify(self, memo, amount):
+    async def verify(self, memo, amount, _from):
         # check the memo is a valid verification code, first.
         verification_code = self.mongo_database["verification_codes"]. \
             find_one({
             "code": memo,
             "verified": False,
+            "steem_username": _from,
         })
 
         if not verification_code:
@@ -173,7 +174,11 @@ class DcomClient(commands.Bot):
                         if op.get("from") == self.registration_account:
                             continue
 
-                        await self.verify(op.get("memo"), op.get("amount"))
+                        await self.verify(
+                            op.get("memo"),
+                            op.get("amount"),
+                            op.get("from")
+                        )
                         processed_memos.add(op.get("memo"))
 
                 except Exception as e:
