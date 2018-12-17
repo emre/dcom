@@ -82,7 +82,11 @@ class DcomClient(commands.Bot):
 
     def get_verification_code(self, steem_username, discord_author):
         old_verification_code = self.mongo_database["verification_codes"]. \
-            find_one({"verified": False, "steem_username": steem_username})
+            find_one({
+                "verified": False,
+                "steem_username": steem_username,
+                "discord_id": str(discord_author),
+            })
         if old_verification_code:
             verification_code = old_verification_code["code"]
             self.mongo_database["verification_codes"].update_one(
