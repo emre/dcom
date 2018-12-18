@@ -28,6 +28,8 @@ class DcomClient(commands.Bot):
         self.curation_channels = self.config.get("curation_channels")
         self.mongo_client = MongoClient(self.config.get("M0NGO_URI"))
         self.mongo_database = self.mongo_client["dcom"]
+        self.patron_role = self.config.get("patron_role")
+        self.bot_log_channel = self.config.get("bot_log_channel")
 
     @asyncio.coroutine
     def on_ready(self):
@@ -36,6 +38,35 @@ class DcomClient(commands.Bot):
         if len(self.servers) > 1:
             sys.exit('This bot may run in only one server.')
         print(f'Running on {self.running_on.name}')
+
+    @asyncio.coroutine
+    async def on_member_update(self, before, after):
+        # This callback works every time a member is updated on Discord.
+        # We use this to sync members having "patron" as a role.
+
+        before_roles = [r.name for r in before.roles]
+        after_roles = [r.name for r in after.roles]
+        channel = discord.Object(self.bot_log_channel)
+
+        if self.patron_role in before_roles and \
+                self.patron_role not in after_roles:
+            # looks like the user lost access to patron role
+            await self.send_message(
+                channel,
+                f":broken_heart: {after.mention} lost patron rights."
+            )
+            self.mongo_database["patrons"].delete_many(
+                {"discord_id": str(after)})
+        elif self.patron_role in after_roles and \
+                self.patron_role not in before_roles:
+            # we have a new patron
+            await self.send_message(
+                channel,
+                f":green_heart: {after.mention} gained patron rights."
+            )
+            self.mongo_database["patrons"].insert(
+                {"discord_id": str(after)}
+            )
 
     def say_error(self, error):
         return self.say(f"**Error:** {error}")

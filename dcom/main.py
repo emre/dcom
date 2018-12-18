@@ -31,7 +31,9 @@ def main():
             "REGISTRATION_ACCOUNT_ACTIVE_KEY"),
         "role_name_for_registered_users": os.getenv(
             "ROLE_FOR_REGISTERED_USERS"),
+        "patron_role": os.getenv("PATRON_ROLE"),
         "community_name": os.getenv("COMMUNITY_NAME"),
+        "bot_log_channel": os.getenv("BOT_LOG_CHANNEL"),
     }
 
     # init the modified Discord client
