@@ -1,5 +1,6 @@
 from discord import Embed
 
+
 def get_help():
     embed = Embed(
         color=0x2ecc71,  # green
@@ -27,6 +28,31 @@ def get_help():
         name="$help",
         value="Shows this message.",
         inline=False,
+    )
+
+    return embed
+
+
+def get_vote_details(author, permlink, weight, voter):
+    """
+    A simple embed to post auto curation details.
+    """
+    embed = Embed(
+        color=0x2ecc71,  # green
+    )
+    embed.add_field(
+        name="Post",
+        value=f"<https://steemit.com/{author}/{permlink}>",
+        inline=False,
+    )
+    embed.add_field(
+        name="Vote weight",
+        value=f"%{weight}",
+    )
+
+    embed.add_field(
+        name="Voted by",
+        value=voter
     )
 
     return embed

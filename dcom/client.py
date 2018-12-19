@@ -1,14 +1,18 @@
 import asyncio
 import datetime
+import random
 import sys
 import uuid
 
 import discord
 import discord.utils
+from dateutil.parser import parse
 from discord.ext import commands
 from lightsteem.client import Client as LightsteemClient
 from lightsteem.datastructures import Operation
 from pymongo import MongoClient
+
+from .embeds import get_vote_details
 
 
 class DcomClient(commands.Bot):
@@ -30,6 +34,10 @@ class DcomClient(commands.Bot):
         self.mongo_database = self.mongo_client["dcom"]
         self.patron_role = self.config.get("patron_role")
         self.bot_log_channel = self.config.get("bot_log_channel")
+        self.account_for_vp_check = self.config.get("account_for_vp_check")
+        self.limit_on_maximum_vp = self.config.get("limit_on_maximum_vp")
+        self.bot_account = self.config.get("bot_account")
+        self.auto_curation_vote_weight = 20
 
     @asyncio.coroutine
     def on_ready(self):
@@ -74,11 +82,11 @@ class DcomClient(commands.Bot):
     def say_success(self, message):
         return self.say(f":thumbsup: {message}")
 
-    def upvote(self, post_content, weight):
+    def upvote(self, post_content, weight, author=None, permlink=None):
         vote_op = Operation('vote', {
             'voter': self.config.get("bot_account"),
-            'author': post_content.get("author"),
-            'permlink': post_content.get("permlink"),
+            'author': author or post_content.get("author"),
+            'permlink': permlink or post_content.get("permlink"),
             'weight': weight * 100
         })
         self.lightsteem_client.broadcast(vote_op)
@@ -114,10 +122,10 @@ class DcomClient(commands.Bot):
     def get_verification_code(self, steem_username, discord_author):
         old_verification_code = self.mongo_database["verification_codes"]. \
             find_one({
-                "verified": False,
-                "steem_username": steem_username,
-                "discord_id": str(discord_author),
-            })
+            "verified": False,
+            "steem_username": steem_username,
+            "discord_id": str(discord_author),
+        })
         if old_verification_code:
             verification_code = old_verification_code["code"]
             self.mongo_database["verification_codes"].update_one(
@@ -136,6 +144,80 @@ class DcomClient(commands.Bot):
             })
 
         return verification_code
+
+    def get_a_random_patron_post(self):
+
+        # Get a list of verified discord members having the role "patron:
+        patron_users = list(self.mongo_database["patrons"].find())
+        patron_users_ids = [u["discord_id"] for u in patron_users]
+        verified_patrons = list(self.mongo_database["verification_codes"] \
+                                .find({
+            "verified": True,
+            "discord_id": {"$in": patron_users_ids}}
+        ).distinct("steem_username"))
+
+        # Remove the patrons already voted in the last 24h.
+        curated_authors = self.get_curated_authors_in_last_24_hours()
+        verified_patrons = set(verified_patrons) - curated_authors
+
+        print("Patrons", verified_patrons)
+        # Prepare a list of patron posts
+        posts = []
+        for patron in verified_patrons:
+            posts.append(self.get_last_votable_post(patron))
+
+        if len(posts):
+            # We have found some posts, shuffle it and
+            # return the first element.
+            random.shuffle(posts)
+            return posts[0]
+
+    def get_curated_authors_in_last_24_hours(self):
+        """
+        Returns a set of authors curated
+        by the self.bot_account.
+        """
+        account = self.lightsteem_client.account(self.bot_account)
+        one_day_ago = datetime.datetime.utcnow() - \
+                      datetime.timedelta(days=1)
+        voted_authors = set()
+        for op in account.history(filter=["vote"], stop_at=one_day_ago):
+            if op["voter"] != self.bot_account:
+                continue
+
+            voted_authors.add(op["author"])
+
+        return voted_authors
+
+    def get_last_votable_post(self, patron):
+        """
+        Returns a list of [author, permlink] lists.
+        Output of this function is designed to be used in automatic curation.
+        """
+        posts = self.lightsteem_client.get_discussions_by_blog(
+            {"limit": 7, "tag": patron})
+        for post in posts:
+
+            # exclude reblogs
+            if post["author"] != patron:
+                continue
+
+            # check if it's votable
+            created = parse(post["created"])
+            diff_in_seconds = (datetime.datetime.utcnow() - created). \
+                total_seconds()
+
+            # check if the post's age is lower than 6.5 days
+            if diff_in_seconds > 561600:
+                break
+
+            # check if we already voted on that.
+            voters = [v["voter"] for v in post["active_votes"]]
+            if self.account_for_vp_check in voters or \
+                    self.bot_account in voters:
+                continue
+
+            return post["author"], post["permlink"]
 
     @property
     def running_on(self):
@@ -185,6 +267,7 @@ class DcomClient(commands.Bot):
         processed_memos = set()
         await self.wait_until_ready()
         while not self.is_closed:
+            print("[task start] check_transfers()")
             # If there are no waiting verifications
             # There is no need to poll the account history
             one_hour_ago = datetime.datetime.utcnow() - \
@@ -219,4 +302,50 @@ class DcomClient(commands.Bot):
                 except Exception as e:
                     print(e)
 
-            await asyncio.sleep(5)
+            print("[task finish] check_transfers()")
+            await asyncio.sleep(10)
+
+    async def auto_curation(self):
+        channel = discord.Object(self.bot_log_channel)
+        await self.wait_until_ready()
+        while not self.is_closed:
+            try:
+                print("[task start] auto_curation()")
+                # vp must be eligible for automatic curation
+                acc = self.lightsteem_client.account(self.account_for_vp_check)
+                if acc.vp() >= int(self.limit_on_maximum_vp):
+
+                    # get the list of registered patrons
+                    post = self.get_a_random_patron_post()
+                    if post:
+                        author, permlink = post
+                        self.upvote(
+                            None,
+                            self.auto_curation_vote_weight,
+                            author=author,
+                            permlink=permlink
+                        )
+                        await self.send_message(
+                            channel,
+                            f"**[auto-curation round]**",
+                            embed=get_vote_details(
+                                author, permlink,
+                                self.auto_curation_vote_weight,
+                                self.bot_account)
+                        )
+                    else:
+                        await self.send_message(
+                            channel,
+                            f"**[auto-curation round]** Couldn't find any "
+                            f"suitable post. Skipping."
+                        )
+                else:
+                    await self.send_message(
+                        channel,
+                        f"**[auto-curation round]** Vp is not enough."
+                        f" ({acc.vp()}) Skipping."
+                    )
+                print("[task finish] auto_curation()")
+            except Exception as e:
+                print(e)
+            await asyncio.sleep(900)
