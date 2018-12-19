@@ -31,7 +31,12 @@ def main():
             "REGISTRATION_ACCOUNT_ACTIVE_KEY"),
         "role_name_for_registered_users": os.getenv(
             "ROLE_FOR_REGISTERED_USERS"),
+        "patron_role": os.getenv("PATRON_ROLE"),
         "community_name": os.getenv("COMMUNITY_NAME"),
+        "bot_log_channel": os.getenv("BOT_LOG_CHANNEL"),
+        "account_for_vp_check": os.getenv("ACCOUNT_FOR_VP_CHECK"),
+        "limit_on_maximum_vp": os.getenv("LIMIT_ON_MAXIMUM_VP"),
+        "auto_curation_vote_weight": os.getenv("AUTO_CURATION_VOTE_WEIGHT"),
     }
 
     # init the modified Discord client
@@ -151,6 +156,9 @@ def main():
 
     # create a timer-task for registrations
     bot.loop.create_task(bot.check_transfers())
+
+    # create a timer-task for auto-curation logic
+    bot.loop.create_task(bot.auto_curation())
 
     # shoot!
     bot.run(os.getenv("DISCORD_BOT_TOKEN"))
