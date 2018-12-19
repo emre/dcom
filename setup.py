@@ -15,6 +15,6 @@ setup(
         ],
     },
     install_requires=[
-        "lightsteem", "discord.py", "python-dotenv", "pymongo"
+        "lightsteem", "discord.py", "python-dotenv", "pymongo", "aiohttp"
     ]
 )
