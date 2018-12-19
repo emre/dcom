@@ -13,6 +13,8 @@ from .utils import (
     channel_is_whitelisted
 )
 
+import aiohttp
+
 
 def main():
     # load environment vars from the .env file
@@ -80,6 +82,22 @@ def main():
         except ValueError as e:
             await bot.say_error(e.args[0])
             return
+
+        # check the author is blacklisted in other communities.
+        session = aiohttp.ClientSession()
+        resp = await session.get(
+            f"http://blacklist.usesteem.com/user/{author}")
+        if resp.status != 200:
+            print("Blacklist api returned non-200. Skipping the check.")
+        else:
+            response_in_json = await resp.json()
+            if len(response_in_json["blacklisted"]):
+                await bot.say(
+                    f":x: Caution. This author @{author} is on a blacklist "
+                    "and has **not** been upvoted."
+                    " Please select another winner."
+                )
+                return
 
         # check if we already voted that post
         if already_voted(post_content, os.getenv("BOT_ACCOUNT")):
