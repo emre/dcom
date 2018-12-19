@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='dcom',
-    version='0.0.6',
+    version='0.0.7',
     packages=['dcom'],
     url='https://github.com/emre/dcom',
     license='MIT',
