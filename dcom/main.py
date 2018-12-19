@@ -108,12 +108,12 @@ def main():
             return
 
         bot.upvote(post_content, weight)
-        vp = bot.lightsteem_client.account(os.getenv("BOT_ACCOUNT")).vp()
-        await bot.say_success(f"Voted. Current vp: %{vp}")
+        await bot.say_success(f"Voted.")
 
     @bot.command()
     async def vp():
-        vp = bot.lightsteem_client.account(os.getenv("BOT_ACCOUNT")).vp()
+        vp = bot.lightsteem_client.account(
+            os.getenv("ACCOUNT_FOR_VP_CHECK")).vp()
         await bot.say(f"Current vp: %{vp}")
 
     @bot.command(pass_context=True)
